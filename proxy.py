@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #-*- coding:utf-8 -*-
 import socket  
 import thread  
@@ -22,6 +24,7 @@ class Proxy(object):
             index=header.find('\n')  
             if index > 0:  
                 break  
+        print ">>>>>request header:\r\n"
         print header
         firstLine=header[:index]  
         self.request=header[index+1:]  
@@ -50,7 +53,8 @@ class Proxy(object):
             self.destnation.connect((self.ip,self.port))  
             data="%s %s %s\r\n" %(self.headers['method'],self.headers['path'],self.headers['protocol'])  
             self.destnation.send(data+self.request)  
-            #print data+self.request  
+            print ">>>>>proxy header:\r\n"
+            print data+self.request  
         else:
             self.destnation.connect((self.ip,self.port))  
             data = "HTTP/1.1 200 Connection Established\r\nconnection: close\r\n\r\n" 
@@ -60,27 +64,46 @@ class Proxy(object):
   
     def render_source(self):  
         readsocket=[self.destnation,self.source]  
-        while True:  
-            data=''  
-            (rlist,wlist,elist)=select.select(readsocket,[],[],3)  
-            if rlist:  
-                if self.https!=1:
-                    data=rlist[0].recv(BUFLEN) 
-                    if len(data)>0:  
-                        self.source.send(data)  
-                    else:  
-                        break
-                else:
+        if self.https!=1:
+            while True:  
+                data=''  
+                (rlist,wlist,elist)=select.select(readsocket,[],[],3)  
+                if rlist:  
+                   data=rlist[0].recv(BUFLEN) 
+                   if len(data)>0:  
+                       if rlist[0] == self.destnation:
+                           self.source.send(data)  
+                           print "<<<<<response:\r\n"
+                           print data
+                       elif rlist[0] == self.source:
+                           self.destnation.send(data)  
+                           print "<<<<<request:\r\n"
+                           print data
+                   else:  
+                       if rlist[0] == self.destnation:
+                           print "<<<<<close from destnation:\r\n"
+                           self.source.close()  
+                           self.destnation.close()  
+                       elif rlist[0] == self.source:
+                           print "<<<<<close from source:\r\n"
+                           self.source.close()  
+                           self.destnation.close()  
+                       break
+        else:
+            while True:  
+                data=''  
+                (rlist,wlist,elist)=select.select(readsocket,[],[],3)  
+                if rlist:  
                     data=rlist[0].recv(BUFLEN) 
                     if len(data)>0:  
                         if rlist[0] == self.destnation:
                             self.source.send(data)  
+                            #print data  
                         elif rlist[0] == self.source:
                             self.destnation.send(data)  
+                            #print data  
                     else:  
-                        #pass
                         break
-                    
                     
 					
     def run(self):  
@@ -97,13 +120,14 @@ class Server(object):
         self.server=socket.socket(socket.AF_INET,socket.SOCK_STREAM)  
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  
         self.server.bind((host,port))  
-        self.server.listen(5)  
+        self.server.listen(1)  
         self.handler=handler  
   
     def start(self):  
         while True:  
             try:  
                 conn,addr=self.server.accept()  
+                print "accept one\r\n"
                 thread.start_new_thread(self.handler,(conn,addr))  
             except (KeyboardInterrupt, SystemExit): 
                 sys.exit()

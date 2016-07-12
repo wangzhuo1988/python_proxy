@@ -103,6 +103,14 @@ class Proxy(object):
                             self.destnation.send(data)  
                             #print data  
                     else:  
+                        if rlist[0] == self.destnation:
+                            print "<<<<<close from destnation:\r\n"
+                            self.source.close()  
+                            self.destnation.close()  
+                        elif rlist[0] == self.source:
+                            print "<<<<<close from source:\r\n"
+                            self.source.close()  
+                            self.destnation.close()  
                         break
                     
 					
